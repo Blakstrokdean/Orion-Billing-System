@@ -85,10 +85,10 @@ Without environment variables, the UI uses its included demo session data so the
 ```mermaid
 flowchart TD
     U[Customers and administrators] --> F[React frontend]
-    F --> A[REST API]
-    A --> B[Laravel backend]
-    B --> D[(MySQL or PostgreSQL)]
-    B --> R[Redis]
+    F --> A[Supabase Auth and REST API]
+    A --> B[Supabase Edge Functions]
+    B --> D[(Supabase PostgreSQL)]
+    B --> R[Queues and scheduled jobs]
     B --> P[Payment providers]
     B --> N[Router and RADIUS integrations]
     N --> M[MikroTik or Ubiquiti]

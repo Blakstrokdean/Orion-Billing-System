@@ -6,6 +6,7 @@ import {
   Wifi, X, Zap,
 } from 'lucide-react'
 import { supabase } from './lib/supabase'
+import type { Factor } from '@supabase/supabase-js'
 
 type Session = { id?: string; name: string; device: string; location: string; plan: string; usage: string; progress: number; color: string }
 
@@ -23,6 +24,30 @@ const transactions = [
 ]
 
 function App() {
+  const [authReady, setAuthReady] = useState(!supabase)
+  const [operator, setOperator] = useState<{ email?: string } | null>(null)
+
+  useEffect(() => {
+    const client = supabase
+    if (!client) return
+    client.auth.getSession().then(async ({ data }) => {
+      const { data: assurance } = await client.auth.mfa.getAuthenticatorAssuranceLevel()
+      setOperator(assurance?.currentLevel === 'aal2' ? data.session?.user ?? null : null)
+      setAuthReady(true)
+    })
+    const { data: listener } = client.auth.onAuthStateChange((event) => {
+      if (event === 'SIGNED_OUT') setOperator(null)
+    })
+    return () => listener.subscription.unsubscribe()
+  }, [])
+
+  if (!authReady) return <AuthLoading />
+  if (supabase && !operator) return <OperatorSignIn onSignedIn={setOperator} />
+
+  return <OperatorDashboard operatorEmail={operator?.email} />
+}
+
+function OperatorDashboard({ operatorEmail }: { operatorEmail?: string }) {
   const [activeNav, setActiveNav] = useState('Overview')
   const [sessions, setSessions] = useState(initialSessions)
   const [showVoucher, setShowVoucher] = useState(false)
@@ -113,7 +138,7 @@ function App() {
           <p className="nav-label support-label">Manage</p>
           {[["Reports", Activity], ["Settings", Settings2]].map(([label, Icon]) => <button key={label as string} className={`nav-item ${activeNav === label ? 'active' : ''}`} onClick={() => setActiveNav(label as string)}><Icon size={18} /><span>{label as string}</span></button>)}
         </nav>
-        <div className="sidebar-bottom"><div className="help-box"><div className="help-icon"><LifeBuoy size={17} /></div><strong>Need a hand?</strong><span>Visit the help center</span></div><div className="profile"><div className="profile-avatar">JM</div><div><strong>Janet Muthoni</strong><span>Owner</span></div><MoreHorizontal size={18} /></div></div>
+        <div className="sidebar-bottom"><div className="help-box"><div className="help-icon"><LifeBuoy size={17} /></div><strong>Need a hand?</strong><span>Visit the help center</span></div><div className="profile"><div className="profile-avatar">JM</div><div><strong>{operatorEmail ?? 'Janet Muthoni'}</strong><span>Owner</span></div><MoreHorizontal size={18} /></div></div>
       </aside>
 
       <main className="main-content">
@@ -136,6 +161,71 @@ function App() {
       {notice && <div className="toast"><ShieldCheck size={18} /> {notice}</div>}
     </div>
   )
+}
+
+function AuthLoading() {
+  return <div className="auth-shell"><div className="auth-card"><div className="modal-icon"><ShieldCheck size={22} /></div><h1>Loading secure sign-in</h1><p>Checking your operator session.</p></div></div>
+}
+
+function OperatorSignIn({ onSignedIn }: { onSignedIn: (operator: { email?: string }) => void }) {
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [code, setCode] = useState('')
+  const [factor, setFactor] = useState<Factor | null>(null)
+  const [enrollment, setEnrollment] = useState<{ id: string; qr_code: string; secret: string } | null>(null)
+  const [step, setStep] = useState<'credentials' | 'mfa' | 'enroll'>('credentials')
+  const [error, setError] = useState('')
+  const [busy, setBusy] = useState(false)
+
+  const submitCredentials = async (event: React.FormEvent) => {
+    event.preventDefault()
+    if (!supabase) return
+    setBusy(true)
+    setError('')
+    const { data, error: signInError } = await supabase.auth.signInWithPassword({ email, password })
+    if (signInError || !data.user) {
+      setError(signInError?.message ?? 'Unable to sign in.')
+      setBusy(false)
+      return
+    }
+    const { data: factors, error: factorError } = await supabase.auth.mfa.listFactors()
+    if (factorError) {
+      setError(factorError.message)
+    } else {
+      const totp = factors.totp[0]
+      if (totp) {
+        setFactor(totp)
+        setStep('mfa')
+      } else {
+        const { data: enrolled, error: enrollError } = await supabase.auth.mfa.enroll({ factorType: 'totp', friendlyName: 'Orion operator authenticator' })
+        if (enrollError || !enrolled?.totp) setError(enrollError?.message ?? 'Could not start 2FA enrollment.')
+        else {
+          setEnrollment({ id: enrolled.id, qr_code: enrolled.totp.qr_code, secret: enrolled.totp.secret })
+          setStep('enroll')
+        }
+      }
+    }
+    setBusy(false)
+  }
+
+  const verifyCode = async (event: React.FormEvent) => {
+    event.preventDefault()
+    if (!supabase || !code) return
+    setBusy(true)
+    setError('')
+    const factorId = factor?.id ?? enrollment?.id
+    if (!factorId) return
+    const { data: challenge, error: challengeError } = await supabase.auth.mfa.challenge({ factorId })
+    if (challengeError) setError(challengeError.message)
+    else {
+      const { error: verifyError } = await supabase.auth.mfa.verify({ factorId, challengeId: challenge.id, code })
+      if (verifyError) setError(verifyError.message)
+      else onSignedIn({ email })
+    }
+    setBusy(false)
+  }
+
+  return <div className="auth-shell"><form className="auth-card" onSubmit={step === 'credentials' ? submitCredentials : verifyCode}><div className="modal-icon"><ShieldCheck size={22} /></div><p className="eyebrow">Orion operator access</p><h1>{step === 'credentials' ? 'Sign in securely' : 'Verify your identity'}</h1>{step === 'credentials' ? <><p>Use your Supabase operator account to continue.</p><label>Email<input type="email" value={email} onChange={(event) => setEmail(event.target.value)} required autoComplete="email" /></label><label>Password<input type="password" value={password} onChange={(event) => setPassword(event.target.value)} required autoComplete="current-password" /></label></> : <><p>{step === 'enroll' ? 'Scan the QR code with an authenticator app, then enter the six-digit code.' : 'Enter the six-digit code from your authenticator app.'}</p>{enrollment && <><img className="auth-qr" src={enrollment.qr_code} alt="Authenticator setup QR code" /><small>Can’t scan? Use this setup key: {enrollment.secret}</small></>}</>} {error && <p className="auth-error">{error}</p>} {step !== 'credentials' && <label>Authentication code<input inputMode="numeric" pattern="[0-9]{6}" maxLength={6} value={code} onChange={(event) => setCode(event.target.value)} required autoComplete="one-time-code" /></label>}<button className="button primary full" disabled={busy}>{busy ? 'Please wait…' : step === 'credentials' ? 'Continue' : 'Verify and continue'}</button></form></div>
 }
 
 function Metric({ label, value, change, trend, icon: Icon, accent }: { label: string; value: string; change: string; trend: 'up' | 'down'; icon: typeof Activity; accent: string }) { return <div className="metric-card"><div className={`metric-icon ${accent}`}><Icon size={19} /></div><div className="metric-copy"><span>{label}</span><strong>{value}</strong><small className={trend === 'down' ? 'negative' : 'positive'}>{trend === 'up' ? <ArrowUpRight size={13} /> : <ArrowDownRight size={13} />} {change} <em>vs last month</em></small></div></div> }
