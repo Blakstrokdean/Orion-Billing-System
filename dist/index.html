@@ -3,10 +3,19 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" content="#f6f8f4" />
+    <meta name="theme-color" content="#f4f6f1" />
     <title>Orion | Hotspot command center</title>
-    <script type="module" crossorigin src="/assets/index-BQWRhmRX.js"></script>
-    <link rel="stylesheet" crossorigin href="/assets/index-CJeAtUNa.css">
+    <script>
+      (function() {
+        try {
+          var saved = localStorage.getItem('orion_theme');
+          var theme = saved || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+          document.documentElement.setAttribute('data-theme', theme);
+        } catch (e) {}
+      })();
+    </script>
+    <script type="module" crossorigin src="/assets/index-DxMdBDw4.js"></script>
+    <link rel="stylesheet" crossorigin href="/assets/index-CogiRz17.css">
   </head>
   <body>
     <div id="root"></div>

@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react'
 import {
-  Activity, ArrowDownRight, ArrowUpRight, Bell, Bolt, ChevronDown, CircleDollarSign,
-  Clock3, CreditCard, Gauge, LayoutDashboard, LifeBuoy, MoreHorizontal, Network,
-  Plus, ReceiptText, Router, Search, Settings2, ShieldCheck, Signal, Ticket, Users,
+  Activity, ArrowDownRight, ArrowUpRight, Bell, ChevronDown, CircleDollarSign,
+  Clock3, CreditCard, Gauge, LayoutDashboard, LifeBuoy, Moon, MoreHorizontal,
+  Plus, ReceiptText, Router, Search, Settings2, ShieldCheck, Signal, Sun, Ticket, Users,
   Wifi, X, Zap,
 } from 'lucide-react'
 import { supabase } from './lib/supabase'
 import type { Factor } from '@supabase/supabase-js'
+import { useTheme } from './useTheme'
 
 type Session = { id?: string; name: string; device: string; location: string; plan: string; usage: string; progress: number; color: string }
 
@@ -24,6 +25,7 @@ const transactions = [
 ]
 
 function App() {
+  const { theme, toggleTheme } = useTheme()
   const [authReady, setAuthReady] = useState(!supabase)
   const [operator, setOperator] = useState<{ email?: string } | null>(null)
 
@@ -42,18 +44,32 @@ function App() {
   }, [])
 
   if (!authReady) return <AuthLoading />
-  if (supabase && !operator) return <OperatorSignIn onSignedIn={setOperator} />
+  if (supabase && !operator) return <OperatorSignIn onSignedIn={setOperator} theme={theme} onToggleTheme={toggleTheme} />
 
-  return <OperatorDashboard operatorEmail={operator?.email} />
+  return <OperatorDashboard operatorEmail={operator?.email} theme={theme} onToggleTheme={toggleTheme} />
 }
 
-function OperatorDashboard({ operatorEmail }: { operatorEmail?: string }) {
+function OperatorDashboard({
+  operatorEmail,
+  theme,
+  onToggleTheme,
+}: {
+  operatorEmail?: string
+  theme: 'light' | 'dark'
+  onToggleTheme: () => void
+}) {
   const [activeNav, setActiveNav] = useState('Overview')
   const [sessions, setSessions] = useState(initialSessions)
   const [showVoucher, setShowVoucher] = useState(false)
   const [voucherPackage, setVoucherPackage] = useState('24 hour pass')
   const [voucherCount, setVoucherCount] = useState(10)
   const [notice, setNotice] = useState('')
+
+  const handleThemeToggle = () => {
+    onToggleTheme()
+    setNotice(theme === 'light' ? 'Switched to Dark mode' : 'Switched to Light mode')
+    window.setTimeout(() => setNotice(''), 2600)
+  }
 
   useEffect(() => {
     const client = supabase
@@ -138,15 +154,46 @@ function OperatorDashboard({ operatorEmail }: { operatorEmail?: string }) {
           <p className="nav-label support-label">Manage</p>
           {[["Reports", Activity], ["Settings", Settings2]].map(([label, Icon]) => <button key={label as string} className={`nav-item ${activeNav === label ? 'active' : ''}`} onClick={() => setActiveNav(label as string)}><Icon size={18} /><span>{label as string}</span></button>)}
         </nav>
-        <div className="sidebar-bottom"><div className="help-box"><div className="help-icon"><LifeBuoy size={17} /></div><strong>Need a hand?</strong><span>Visit the help center</span></div><div className="profile"><div className="profile-avatar">JM</div><div><strong>{operatorEmail ?? 'Janet Muthoni'}</strong><span>Owner</span></div><MoreHorizontal size={18} /></div></div>
+        <div className="sidebar-bottom">
+          <div className="help-box"><div className="help-icon"><LifeBuoy size={17} /></div><strong>Need a hand?</strong><span>Visit the help center</span></div>
+          <button
+            className="sidebar-theme-toggle"
+            onClick={handleThemeToggle}
+            aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
+            title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
+          >
+            <span>Appearance</span>
+            <div className="theme-pill">
+              {theme === 'dark' ? <Sun size={13} /> : <Moon size={13} />}
+              <span>{theme === 'dark' ? 'Dark' : 'Light'}</span>
+            </div>
+          </button>
+          <div className="profile"><div className="profile-avatar">JM</div><div><strong>{operatorEmail ?? 'Janet Muthoni'}</strong><span>Owner</span></div><MoreHorizontal size={18} /></div>
+        </div>
       </aside>
 
       <main className="main-content">
-        <header className="topbar"><div className="breadcrumb"><span>Harbor House</span><span>/</span><strong>{activeNav}</strong></div><div className="top-actions"><button className="icon-button" aria-label="Search" onClick={() => setNotice('Search is ready for your workspace')}><Search size={19} /></button><button className="icon-button notification" aria-label="Notifications" onClick={() => setNotice('You are all caught up')}><Bell size={19} /><i /></button><div className="date-control"><Clock3 size={16} /> Aug 01 – Aug 31 <ChevronDown size={14} /></div></div></header>
+        <header className="topbar">
+          <div className="breadcrumb"><span>Harbor House</span><span>/</span><strong>{activeNav}</strong></div>
+          <div className="top-actions">
+            <button className="icon-button" aria-label="Search" onClick={() => setNotice('Search is ready for your workspace')}><Search size={19} /></button>
+            <button className="icon-button notification" aria-label="Notifications" onClick={() => setNotice('You are all caught up')}><Bell size={19} /><i /></button>
+            <button
+              className="theme-toggle-btn"
+              onClick={handleThemeToggle}
+              aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
+              title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
+            >
+              {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
+              <span>{theme === 'dark' ? 'Light mode' : 'Dark mode'}</span>
+            </button>
+            <div className="date-control"><Clock3 size={16} /> Aug 01 – Aug 31 <ChevronDown size={14} /></div>
+          </div>
+        </header>
         <div className="page-wrap">
-           <section className="page-heading"><div><p className="eyebrow">Wednesday, August 26, 2026</p><h1>{activeNav === 'Overview' ? <>Good morning, Janet <span>✦</span></> : activeNav}</h1><p className="heading-sub">{activeNav === 'Overview' ? 'Here is what is happening across your hotspot today.' : `${activeNav} workspace tools are ready to be connected to your live hotspot data.`}</p></div><div className="heading-actions"><button className="button secondary" onClick={() => setNotice('Report export prepared')}><ArrowDownRight size={16} /> Export report</button><button className="button primary" onClick={() => setShowVoucher(true)}><Plus size={17} /> Create voucher</button></div></section>
+          <section className="page-heading"><div><p className="eyebrow">Wednesday, August 26, 2026</p><h1>{activeNav === 'Overview' ? <>Good morning, Janet <span>✦</span></> : activeNav}</h1><p className="heading-sub">{activeNav === 'Overview' ? 'Here is what is happening across your hotspot today.' : `${activeNav} workspace tools are ready to be connected to your live hotspot data.`}</p></div><div className="heading-actions"><button className="button secondary" onClick={() => setNotice('Report export prepared')}><ArrowDownRight size={16} /> Export report</button><button className="button primary" onClick={() => setShowVoucher(true)}><Plus size={17} /> Create voucher</button></div></section>
 
-           {activeNav !== 'Overview' && <SectionPlaceholder section={activeNav} />}
+          {activeNav !== 'Overview' && <SectionPlaceholder section={activeNav} />}
 
           <section className="metrics-grid"><Metric label="Total revenue" value="KSh 284,650" change="18.4%" trend="up" icon={CircleDollarSign} accent="green" /><Metric label="Active customers" value="1,284" change="12.6%" trend="up" icon={Users} accent="orange" /><Metric label="Live sessions" value={String(sessions.length + 146)} change="4.2%" trend="up" icon={Wifi} accent="teal" /><Metric label="Avg. session time" value="3h 42m" change="8.1%" trend="down" icon={Gauge} accent="blue" /></section>
 
@@ -167,7 +214,15 @@ function AuthLoading() {
   return <div className="auth-shell"><div className="auth-card"><div className="modal-icon"><ShieldCheck size={22} /></div><h1>Loading secure sign-in</h1><p>Checking your operator session.</p></div></div>
 }
 
-function OperatorSignIn({ onSignedIn }: { onSignedIn: (operator: { email?: string }) => void }) {
+function OperatorSignIn({
+  onSignedIn,
+  theme,
+  onToggleTheme,
+}: {
+  onSignedIn: (operator: { email?: string }) => void
+  theme: 'light' | 'dark'
+  onToggleTheme: () => void
+}) {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [code, setCode] = useState('')
@@ -225,13 +280,122 @@ function OperatorSignIn({ onSignedIn }: { onSignedIn: (operator: { email?: strin
     setBusy(false)
   }
 
-  return <div className="auth-shell"><form className="auth-card" onSubmit={step === 'credentials' ? submitCredentials : verifyCode}><div className="modal-icon"><ShieldCheck size={22} /></div><p className="eyebrow">Orion operator access</p><h1>{step === 'credentials' ? 'Sign in securely' : 'Verify your identity'}</h1>{step === 'credentials' ? <><p>Use your Supabase operator account to continue.</p><label>Email<input type="email" value={email} onChange={(event) => setEmail(event.target.value)} required autoComplete="email" /></label><label>Password<input type="password" value={password} onChange={(event) => setPassword(event.target.value)} required autoComplete="current-password" /></label></> : <><p>{step === 'enroll' ? 'Scan the QR code with an authenticator app, then enter the six-digit code.' : 'Enter the six-digit code from your authenticator app.'}</p>{enrollment && <><img className="auth-qr" src={enrollment.qr_code} alt="Authenticator setup QR code" /><small>Can’t scan? Use this setup key: {enrollment.secret}</small></>}</>} {error && <p className="auth-error">{error}</p>} {step !== 'credentials' && <label>Authentication code<input inputMode="numeric" pattern="[0-9]{6}" maxLength={6} value={code} onChange={(event) => setCode(event.target.value)} required autoComplete="one-time-code" /></label>}<button className="button primary full" disabled={busy}>{busy ? 'Please wait…' : step === 'credentials' ? 'Continue' : 'Verify and continue'}</button></form></div>
+  return (
+    <div className="auth-shell">
+      <div className="auth-header-bar">
+        <button
+          type="button"
+          className="theme-toggle-btn"
+          onClick={onToggleTheme}
+          aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
+          title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
+        >
+          {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
+          <span>{theme === 'dark' ? 'Light' : 'Dark'}</span>
+        </button>
+      </div>
+      <form className="auth-card" onSubmit={step === 'credentials' ? submitCredentials : verifyCode}>
+        <div className="modal-icon"><ShieldCheck size={22} /></div>
+        <p className="eyebrow">Orion operator access</p>
+        <h1>{step === 'credentials' ? 'Sign in securely' : 'Verify your identity'}</h1>
+        {step === 'credentials' ? (
+          <>
+            <p>Use your Supabase operator account to continue.</p>
+            <label>Email<input type="email" value={email} onChange={(event) => setEmail(event.target.value)} required autoComplete="email" /></label>
+            <label>Password<input type="password" value={password} onChange={(event) => setPassword(event.target.value)} required autoComplete="current-password" /></label>
+          </>
+        ) : (
+          <>
+            <p>{step === 'enroll' ? 'Scan the QR code with an authenticator app, then enter the six-digit code.' : 'Enter the six-digit code from your authenticator app.'}</p>
+            {enrollment && (
+              <>
+                <img className="auth-qr" src={enrollment.qr_code} alt="Authenticator setup QR code" />
+                <small>Can’t scan? Use this setup key: {enrollment.secret}</small>
+              </>
+            )}
+          </>
+        )}
+        {error && <p className="auth-error">{error}</p>}
+        {step !== 'credentials' && (
+          <label>Authentication code<input inputMode="numeric" pattern="[0-9]{6}" maxLength={6} value={code} onChange={(event) => setCode(event.target.value)} required autoComplete="one-time-code" /></label>
+        )}
+        <button className="button primary full" disabled={busy}>{busy ? 'Please wait…' : step === 'credentials' ? 'Continue' : 'Verify and continue'}</button>
+      </form>
+    </div>
+  )
 }
 
-function Metric({ label, value, change, trend, icon: Icon, accent }: { label: string; value: string; change: string; trend: 'up' | 'down'; icon: typeof Activity; accent: string }) { return <div className="metric-card"><div className={`metric-icon ${accent}`}><Icon size={19} /></div><div className="metric-copy"><span>{label}</span><strong>{value}</strong><small className={trend === 'down' ? 'negative' : 'positive'}>{trend === 'up' ? <ArrowUpRight size={13} /> : <ArrowDownRight size={13} />} {change} <em>vs last month</em></small></div></div> }
-function HealthRow({ label, value, status }: { label: string; value: string; status: string }) { return <div className="health-row"><span><i className={`health-dot ${status}`} />{label}</span><strong>{value}</strong></div> }
-function PackageRow({ name, sales, amount, width, color }: { name: string; sales: string; amount: string; width: string; color: string }) { return <div className="package-row"><div className="package-top"><div><strong>{name}</strong><span>{sales}</span></div><b>{amount}</b></div><div className="package-bar"><i className={color} style={{ width }} /></div></div> }
-function SectionPlaceholder({ section }: { section: string }) { return <section className="panel section-placeholder"><div className="placeholder-icon"><LayoutDashboard size={20} /></div><p className="eyebrow">Workspace module</p><h2>{section} is coming into focus</h2><p>Connect this module to the Harbor House workspace to manage it from the same operator command center.</p><button className="button secondary" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>Back to top <ArrowUpRight size={15} /></button></section> }
-function RevenueChart() { return <div className="chart"><div className="chart-grid"><span /><span /><span /><span /></div><svg viewBox="0 0 720 180" preserveAspectRatio="none" role="img" aria-label="Revenue trend"><defs><linearGradient id="fill" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stopColor="#d36b4d" stopOpacity=".24" /><stop offset="1" stopColor="#d36b4d" stopOpacity="0" /></linearGradient></defs><path d="M0 145 C40 142 46 120 83 129 S125 146 165 105 S208 98 242 113 S276 128 315 91 S350 74 390 84 S426 105 465 67 S500 78 535 55 S575 72 612 38 S650 48 720 15 L720 180 L0 180Z" fill="url(#fill)" /><path d="M0 145 C40 142 46 120 83 129 S125 146 165 105 S208 98 242 113 S276 128 315 91 S350 74 390 84 S426 105 465 67 S500 78 535 55 S575 72 612 38 S650 48 720 15" fill="none" stroke="#d36b4d" strokeWidth="3" strokeLinecap="round" /></svg><div className="chart-labels"><span>Aug 01</span><span>Aug 08</span><span>Aug 15</span><span>Aug 22</span><span>Aug 31</span></div></div> }
+function Metric({ label, value, change, trend, icon: Icon, accent }: { label: string; value: string; change: string; trend: 'up' | 'down'; icon: typeof Activity; accent: string }) {
+  return (
+    <div className="metric-card">
+      <div className={`metric-icon ${accent}`}><Icon size={19} /></div>
+      <div className="metric-copy">
+        <span>{label}</span>
+        <strong>{value}</strong>
+        <small className={trend === 'down' ? 'negative' : 'positive'}>
+          {trend === 'up' ? <ArrowUpRight size={13} /> : <ArrowDownRight size={13} />} {change} <em>vs last month</em>
+        </small>
+      </div>
+    </div>
+  )
+}
+
+function HealthRow({ label, value, status }: { label: string; value: string; status: string }) {
+  return (
+    <div className="health-row">
+      <span><i className={`health-dot ${status}`} />{label}</span>
+      <strong>{value}</strong>
+    </div>
+  )
+}
+
+function PackageRow({ name, sales, amount, width, color }: { name: string; sales: string; amount: string; width: string; color: string }) {
+  return (
+    <div className="package-row">
+      <div className="package-top">
+        <div><strong>{name}</strong><span>{sales}</span></div>
+        <b>{amount}</b>
+      </div>
+      <div className="package-bar"><i className={color} style={{ width }} /></div>
+    </div>
+  )
+}
+
+function SectionPlaceholder({ section }: { section: string }) {
+  return (
+    <section className="panel section-placeholder">
+      <div className="placeholder-icon"><LayoutDashboard size={20} /></div>
+      <p className="eyebrow">Workspace module</p>
+      <h2>{section} is coming into focus</h2>
+      <p>Connect this module to the Harbor House workspace to manage it from the same operator command center.</p>
+      <button className="button secondary" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>Back to top <ArrowUpRight size={15} /></button>
+    </section>
+  )
+}
+
+function RevenueChart() {
+  return (
+    <div className="chart">
+      <div className="chart-grid"><span /><span /><span /><span /></div>
+      <svg viewBox="0 0 720 180" preserveAspectRatio="none" role="img" aria-label="Revenue trend">
+        <defs>
+          <linearGradient id="fill" x1="0" x2="0" y1="0" y2="1">
+            <stop offset="0" stopColor="#d36b4d" stopOpacity=".24" />
+            <stop offset="1" stopColor="#d36b4d" stopOpacity="0" />
+          </linearGradient>
+        </defs>
+        <path d="M0 145 C40 142 46 120 83 129 S125 146 165 105 S208 98 242 113 S276 128 315 91 S350 74 390 84 S426 105 465 67 S500 78 535 55 S575 72 612 38 S650 48 720 15 L720 180 L0 180Z" fill="url(#fill)" />
+        <path d="M0 145 C40 142 46 120 83 129 S125 146 165 105 S208 98 242 113 S276 128 315 91 S350 74 390 84 S426 105 465 67 S500 78 535 55 S575 72 612 38 S650 48 720 15" fill="none" stroke="#d36b4d" strokeWidth="3" strokeLinecap="round" />
+      </svg>
+      <div className="chart-labels">
+        <span>Aug 01</span>
+        <span>Aug 08</span>
+        <span>Aug 15</span>
+        <span>Aug 22</span>
+        <span>Aug 31</span>
+      </div>
+    </div>
+  )
+}
 
 export default App
